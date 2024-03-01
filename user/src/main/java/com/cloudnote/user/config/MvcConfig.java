@@ -17,7 +17,8 @@ public class MvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/login/email",
                         "/register/email",
-                        "/email/register/vc"
+                        "/email/register/vc",
+                        "/logout"
                 ).order(1);
         // token有效期刷新拦截器
         registry.addInterceptor(new RefreshTokenInterceptor(redisTemplate)).addPathPatterns("/**").order(0);

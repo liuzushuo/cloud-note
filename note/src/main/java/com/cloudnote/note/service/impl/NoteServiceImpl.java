@@ -36,10 +36,13 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.cloudnote.common.constants.MqConstants.NOTE_COLLECT_TX_GROUP;
+import static com.cloudnote.common.constants.MqConstants.NOTE_COLLECT_TX_TOPIC;
 import static com.cloudnote.common.constants.RedisConstants.CACHE_NOTE_LIST_KEY;
 import static com.cloudnote.common.constants.RedisConstants.CACHE_NOTE_LIST_TTL;
 
@@ -427,7 +430,7 @@ public class NoteServiceImpl extends ServiceImpl<INoteMapper, Note> implements I
         if (updateOne == null) {
             return false;
         }
-        if (!isCollect&&!updateOne.getIsCollect()){
+        if (!isCollect && !updateOne.getIsCollect()) {
             // 未收藏的笔记，不能取消收藏
             return false;
         }
@@ -442,7 +445,7 @@ public class NoteServiceImpl extends ServiceImpl<INoteMapper, Note> implements I
         params.put("oldCollectStatus", updateOne.getIsCollect());
         params.put("oldCollectId", updateOne.getCollectId());
         Message<String> message = MessageBuilder.withPayload(params.toString()).build();
-        rocketMQTemplate.sendMessageInTransaction(MqConstants.NOTE_COLLECT_TX_GROUP, MqConstants.NOTE_COLLECT_TX_TOPIC, message, null);
+        rocketMQTemplate.sendMessageInTransaction(NOTE_COLLECT_TX_GROUP, NOTE_COLLECT_TX_TOPIC, message, null);
         return true;
     }
 
@@ -495,12 +498,12 @@ public class NoteServiceImpl extends ServiceImpl<INoteMapper, Note> implements I
     @Override
     public Long getUserNoteCount(Integer userId) {
         // 1.查询
-        List<JSONObject> noteListJson = cacheClient.queryWithLogicalExpire(CACHE_NOTE_LIST_KEY, 10, List.class, this::getNoteList, CACHE_NOTE_LIST_TTL, TimeUnit.MINUTES);
-        if (noteListJson == null || noteListJson.size() == 0) {
+        List<Note> noteList = cacheClient.queryListWithLogicalExpire(CACHE_NOTE_LIST_KEY, userId, Note.class, this::getNoteList, CACHE_NOTE_LIST_TTL, TimeUnit.MINUTES);
+        if (noteList == null) {
             return 0L;
         }
         // 2.返回结果
-        return Long.valueOf(noteListJson.size());
+        return Long.valueOf(noteList.size());
     }
 
     /**
@@ -579,13 +582,33 @@ public class NoteServiceImpl extends ServiceImpl<INoteMapper, Note> implements I
         if (noteList == null || noteList.isEmpty()) {
             // 第一次添加，直接写入缓存
             cacheClient.setWithLogicalExpire(key, Collections.singletonList(note), CACHE_NOTE_LIST_TTL, TimeUnit.MINUTES);
+            return;
         }
         // 删除原笔记
         noteList = noteList.stream().filter(n -> !n.getId().equals(note.getId())).collect(Collectors.toList());
-        // 添加新笔记
-        noteList.add(note);
+
+        // 分类，分为置顶笔记和普通笔记
+        LinkedList<Note> topNoteList = new LinkedList<>();
+        LinkedList<Note> normalNoteList = new LinkedList<>();
+        for (Note n : noteList) {
+            if (n.getTop()){
+                topNoteList.push(n);
+            }else {
+                normalNoteList.push(n);
+            }
+        }
+
+        // 根据待添加笔记的top属性添加到对应的链表
+        if (note.getTop()){
+            topNoteList.push(note);
+        }else {
+            normalNoteList.push(note);
+        }
+        // 合并链表
+        topNoteList.addAll(normalNoteList);
+
         // 存入缓存
-        cacheClient.setWithLogicalExpire(key, noteList, CACHE_NOTE_LIST_TTL, TimeUnit.MINUTES);
+        cacheClient.setWithLogicalExpire(key, topNoteList, CACHE_NOTE_LIST_TTL, TimeUnit.MINUTES);
     }
 
     /**

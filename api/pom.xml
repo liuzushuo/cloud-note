@@ -18,6 +18,8 @@
         <module>thing-api</module>
         <module>record-api</module>
         <module>collect-api</module>
+        <module>order-api</module>
+        <module>assistant-api</module>
     </modules>
 
     <properties>

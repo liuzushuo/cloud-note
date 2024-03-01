@@ -27,4 +27,10 @@ public interface ILoginService {
      * @return
      */
     boolean registWithTx(Integer userId, String password, String email);
+
+    /**
+     * 退出登录
+     * @param tokenKey
+     */
+    void logout(String tokenKey);
 }

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -137,7 +138,7 @@ public class ThingServiceImpl extends ServiceImpl<IThingMapper, Thing> implement
         boolean update = update(Wrappers.lambdaUpdate(Thing.class).set(Thing::getStatus, afterStatus).eq(Thing::getId, thingId).eq(Thing::getUserId, userId));
 
         // TODO:删除redis中的记录
-        R recordResp = recordService.removeRecord(userId, Long.parseLong(thingId.toString()), 0, true);
+        R recordResp = recordService.removeRecord(userId, Long.parseLong(thingId.toString()), 2, true);
 
         // 发消息
         JSONObject params = new JSONObject();
@@ -284,7 +285,7 @@ public class ThingServiceImpl extends ServiceImpl<IThingMapper, Thing> implement
             e.printStackTrace();
             return null;
         }
-        if (thingList == null || thingList.size() == 0){
+        if (thingList == null || thingList.size() == 0) {
             return null;
         }
         return thingList;
@@ -317,13 +318,32 @@ public class ThingServiceImpl extends ServiceImpl<IThingMapper, Thing> implement
         if (thingList == null || thingList.size() == 0) {
             // 第一次添加，直接写入缓存
             cacheClient.setWithLogicalExpire(CACHE_THING_LIST_KEY + userId, Collections.singletonList(thing), CACHE_THING_LIST_TTL, TimeUnit.MINUTES);
+            return;
         }
-        // 2.将原有的小记删除
+        // 2.删除原有的小记
         thingList = thingList.stream().filter(t -> !t.getId().equals(thing.getId())).collect(Collectors.toList());
-        // 3.添加新的小记
-        thingList.add(thing);
-        // 4.更新缓存
-        cacheClient.setWithLogicalExpire(CACHE_THING_LIST_KEY + userId, thingList, CACHE_THING_LIST_TTL, TimeUnit.MINUTES);
+        // 3.分类，划分出置顶小记和普通小记
+        LinkedList<Thing> topList = new LinkedList<>();
+        LinkedList<Thing> normalList = new LinkedList<>();
+        for (Thing t : thingList) {
+            if (t.getTop()) {
+                topList.push(t);
+            } else {
+                normalList.push(t);
+            }
+        }
+        // 4.根据待添加小记的top属性，决定是插入到普通列表还是置顶列表
+        if (thing.getTop()) {
+            // 添加小记
+            topList.push(thing);
+        } else {
+            //  添加小记
+            normalList.push(thing);
+        }
+        // 5.合并列表
+        topList.addAll(normalList);
+        // 6.更新缓存
+        cacheClient.setWithLogicalExpire(CACHE_THING_LIST_KEY + userId, topList, CACHE_THING_LIST_TTL, TimeUnit.MINUTES);
     }
 
     /**

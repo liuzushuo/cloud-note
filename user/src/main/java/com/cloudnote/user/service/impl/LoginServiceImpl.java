@@ -159,4 +159,14 @@ public class LoginServiceImpl implements ILoginService {
         }
         return true;
     }
+
+    /**
+     * 退出登录
+     *
+     * @param tokenKey
+     */
+    @Override
+    public void logout(String tokenKey) {
+        redisTemplate.delete(tokenKey);
+    }
 }

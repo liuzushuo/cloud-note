@@ -42,7 +42,7 @@ public class RecordServiceImpl implements IRecordService {
         // 构造redis查询的key
         String key = CACHE_RECORD_LIST_KEY + userId;
         // 获取所有历史记录
-        Set<String> set = redisTemplate.opsForZSet().range(key, 0, -1);
+        Set<String> set = redisTemplate.opsForZSet().reverseRange(key, 0, -1);
         return set.stream().map(json -> JSONUtil.toBean(json, RecordDto.class)).collect(Collectors.toList());
     }
 

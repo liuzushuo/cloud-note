@@ -21,4 +21,8 @@ public class MqConstants {
     public final static String USER_COLLECT_TX_GROUP = "CN_USER_COLLECT_TX_PRODUCER_GROUP";
     public final static String USER_COLLECT_TX_TOPIC = "user_collect_tx_topic";
 
+    // 订单
+    public final static String PAY_STATUS_SAVE_TX_GROUP = "CN_PAY_STATUS_SAVE_TX_PRODUCER_GROUP";
+    public final static String PAY_STATUS_SAVE_TX_TOPIC = "pay_status_tx_topic";
+
 }

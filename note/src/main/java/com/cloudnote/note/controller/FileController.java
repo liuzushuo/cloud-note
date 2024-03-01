@@ -1,6 +1,7 @@
 package com.cloudnote.note.controller;
 
 import cn.hutool.core.lang.Validator;
+import com.cloudnote.common.constants.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -66,12 +67,14 @@ public class FileController {
             file.transferTo(localFile);
         } catch (IOException e) {
             e.printStackTrace();
+            responseData.put("code", HttpStatus.ERROR);
             responseDataInfo.put("message", "上传失败！");
             responseData.put("error", responseDataInfo);
             return responseData;
         }
 
         // 4.构造返回值
+        responseData.put("code", HttpStatus.SUCCESS);
         responseData.put("url", urlImagePath + fileName);
         return responseData;
     }
